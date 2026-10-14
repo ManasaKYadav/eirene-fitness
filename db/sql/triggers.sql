@@ -1,0 +1,6 @@
+-- Eirene — triggers (Person A, Day 3)
+--
+-- BEFORE INSERT on workout_logs: raise an exception when the exercise strains
+-- any injury the user has (exercise_injuries x user_injuries). This is the
+-- database-level safety check, so an unsafe workout cannot be stored even if
+-- the API is bypassed.

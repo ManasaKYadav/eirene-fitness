@@ -1,0 +1,12 @@
+-- Eirene — database roles and row-level security (Person A, Day 4)
+--
+-- Roles eirene_admin and eirene_user:
+--   eirene_user  -> SELECT on the catalog tables only
+--   eirene_admin -> INSERT, UPDATE, DELETE on the catalog tables
+--
+-- Row-level security on workout_logs, meal_logs, progress_logs,
+-- user_injuries and user_allergies, with policy:
+--   user_id = current_setting('app.user_id')::int
+--
+-- Paired with withUser(user, fn) in lib/db.ts, which opens a transaction,
+-- SET LOCAL ROLE to the user's role, and set_config('app.user_id', id, true).
