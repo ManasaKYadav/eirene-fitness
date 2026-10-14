@@ -13,11 +13,11 @@ function createPool(): Pool {
     throw new Error("DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.");
   }
 
+  // TLS comes from the connection string (Neon appends sslmode=require), and
+  // its certificate validates against Node's trust store, so the certificate
+  // is verified rather than blindly accepted.
   return new Pool({
     connectionString,
-    // Neon requires TLS. It serves a cert Node does not trust by default, so
-    // verification is relaxed here the same way `sslmode=require` does.
-    ssl: { rejectUnauthorized: false },
     max: 5,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
