@@ -25,5 +25,12 @@
 -- ============================================================
 
 -- ============================================================
--- ALTER / INDEXES
+-- ALTER / INDEXES  (runs after both sections, so neither person's
+-- tables have to be created before the other's)
 -- ============================================================
+
+-- users.goal_id -> goals.goal_id is added here rather than inline, because
+-- users is Person A's table and goals is Person B's.
+-- ALTER TABLE users
+--   ADD CONSTRAINT fk_users_goal
+--   FOREIGN KEY (goal_id) REFERENCES goals(goal_id) ON DELETE SET NULL;

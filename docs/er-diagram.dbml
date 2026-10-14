@@ -8,8 +8,15 @@
 // allergens, user_allergies, ingredients, ingredient_parts, foods,
 // food_ingredients, meal_logs).
 //
-// Create order note: users.goal_id references goals, so goals must be created
-// before users in schema.sql (or the FK added afterwards with ALTER TABLE).
+// Create order note: users.goal_id references goals, which is Person B's
+// table. Rather than forcing one person's section of schema.sql to come
+// first, the constraint is added at the end of the file:
+//
+//   ALTER TABLE users
+//     ADD CONSTRAINT fk_users_goal
+//     FOREIGN KEY (goal_id) REFERENCES goals(goal_id) ON DELETE SET NULL;
+//
+// That keeps both sections independent of each other's create order.
 
 // ============================================================
 // Person A — Training & Users
