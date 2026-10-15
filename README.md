@@ -40,6 +40,19 @@ docs/             ER diagram
 scripts/          one-off scripts (PostgreSQL -> Neo4j sync)
 ```
 
+## Development accounts
+
+A temporary admin account exists for testing the role checks until the seed
+data lands:
+
+| Email | Password | Role |
+| --- | --- | --- |
+| `admin@eirene.dev` | `adminpass123` | admin |
+
+Normal accounts are created through `/register` and are always role `user`;
+admin is granted in the database. These are throwaway credentials for a
+coursework database — nothing real is protected by them.
+
 ## Database setup order
 
 Run against Neon in this order, then run the Neo4j sync script:
