@@ -1,6 +1,6 @@
--- Eirene — seed data (Person B writes this on Day 2)
+-- Eirene — seed data
 --
--- Target volumes from the plan:
+-- Target volumes:
 --   1 admin + 8 users with goals
 --   5 injuries, 25 exercises with the injuries they strain
 --   6 allergens, 30 ingredients (some nested), 25 foods

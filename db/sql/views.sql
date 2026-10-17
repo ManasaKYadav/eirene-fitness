@@ -1,7 +1,9 @@
 -- Eirene — views
 --
--- Person A (Day 3): v_weekly_progress — workouts and total volume
---   (sets * reps * weight) per user per week.
+-- v_weekly_progress
+--   Workouts and total volume (sets * reps * weight) per user per week.
 --
--- Person B (Day 3): v_safe_foods — each user paired with every food that
---   contains no allergen from their user_allergies (uses the recursive CTE).
+-- v_safe_foods
+--   Each user paired with every food that contains no allergen from their
+--   user_allergies, using the recursive CTE to reach allergens nested inside
+--   ingredients.

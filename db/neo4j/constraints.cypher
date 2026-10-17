@@ -1,4 +1,4 @@
-// Eirene — Neo4j constraints (Person B, Day 2)
+// Eirene — Neo4j constraints
 //
 // A uniqueness constraint on id for each label:
 //   User, Goal, Injury, Allergen, Exercise, Ingredient, Food
