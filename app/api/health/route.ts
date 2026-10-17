@@ -12,7 +12,7 @@ async function checkPostgres(): Promise<DbStatus> {
   }
 }
 
-// TODO: add checkNeo4j() here (RETURN 1 via lib/neo4j.ts) and include it
+// Person B: add checkNeo4j() here (RETURN 1 via lib/neo4j.ts) and include it
 // in the response below, so this one route reports both databases.
 
 export async function GET() {
