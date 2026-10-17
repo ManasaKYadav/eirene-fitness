@@ -1,4 +1,10 @@
-import { Pool, type QueryResult, type QueryResultRow } from "pg";
+import { Pool, types, type QueryResult, type QueryResultRow } from "pg";
+
+// Return DATE columns as the plain 'YYYY-MM-DD' string the database holds.
+// By default the driver builds a JavaScript Date at local midnight, which in
+// any timezone ahead of UTC serialises back as the previous day — so a
+// workout logged today would appear on the dashboard as yesterday.
+types.setTypeParser(types.builtins.DATE, (value) => value);
 
 // One Pool per process, created on first use. In dev, Next.js hot-reloads
 // modules, so the pool is cached on globalThis to stop every reload from
