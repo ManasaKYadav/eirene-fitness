@@ -3,16 +3,23 @@
 // Paste into https://dbdiagram.io to render, then export the PNG to
 // docs/er-diagram.png.
 //
-// 15 tables:  Person A owns 7 (users, injuries, user_injuries, exercises,
-// exercise_injuries, workout_logs, progress_logs); Person B owns 8 (goals,
-// allergens, user_allergies, ingredients, ingredient_parts, foods,
-// food_ingredients, meal_logs).
+// 15 tables. Training & Users: users, injuries, user_injuries, exercises,
+// exercise_injuries, workout_logs, progress_logs. Nutrition &
+// Recommendations: goals, allergens, user_allergies, ingredients,
+// ingredient_parts, foods, food_ingredients, meal_logs.
 //
-// Create order note: users.goal_id references goals, so goals must be created
-// before users in schema.sql (or the FK added afterwards with ALTER TABLE).
+// Create order note: users.goal_id references goals. Rather than forcing one
+// section of schema.sql to come first, the constraint is added at the end of
+// the file:
+//
+//   ALTER TABLE users
+//     ADD CONSTRAINT fk_users_goal
+//     FOREIGN KEY (goal_id) REFERENCES goals(goal_id) ON DELETE SET NULL;
+//
+// That keeps both sections independent of each other's create order.
 
 // ============================================================
-// Person A — Training & Users
+// Training & Users
 // ============================================================
 
 Table users {
@@ -90,7 +97,7 @@ Table progress_logs {
 }
 
 // ============================================================
-// Person B — Nutrition & Recommendations
+// Nutrition & Recommendations
 // ============================================================
 
 Table goals {

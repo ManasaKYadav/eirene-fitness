@@ -1,4 +1,4 @@
--- Eirene — database roles and row-level security (Person A, Day 4)
+-- Eirene — database roles and row-level security
 --
 -- Roles eirene_admin and eirene_user:
 --   eirene_user  -> SELECT on the catalog tables only
