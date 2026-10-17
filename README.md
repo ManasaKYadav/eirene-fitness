@@ -68,9 +68,9 @@ Run against Neon in this order, then run the Neo4j sync script:
 
 Two-person project, each owning a feature area end to end (SQL, Neo4j, API, UI).
 
-- **Person A — Training & Users:** auth and roles, injuries and exercises, workout
+- **Rhea — Training & Users:** auth and roles, injuries and exercises, workout
   and progress logging, the safety trigger and `log_workout` procedure, database
   roles and row-level security, safe-exercise graph query, admin exercises.
-- **Person B — Nutrition & Recommendations:** goals, allergens and nested
+- **Manasa — Nutrition & Recommendations:** goals, allergens and nested
   ingredients, meal logging, `daily_calories`, the recursive allergen CTE, the
   Neo4j sync and recommendation queries, admin foods.

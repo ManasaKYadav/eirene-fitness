@@ -1,4 +1,4 @@
--- Eirene — triggers (Person A, Day 3)
+-- Eirene — triggers
 --
 -- BEFORE INSERT on workout_logs: raise an exception when the exercise strains
 -- any injury the user has (exercise_injuries x user_injuries). This is the

@@ -1,8 +1,8 @@
 -- Eirene — stored procedures and functions
 --
--- Person A (Day 3): procedure log_workout(user_id, exercise_id, sets, reps, weight)
---   inserts into workout_logs and updates users.last_workout_on.
---   Called between BEGIN and COMMIT; rolls back if the trigger fires.
+-- log_workout(user_id, exercise_id, sets, reps, weight)
+--   Inserts into workout_logs and updates users.last_workout_on. Called
+--   between BEGIN and COMMIT, so it rolls back if the safety trigger fires.
 --
--- Person B (Day 3): function daily_calories(p_user INT, p_day DATE) RETURNS NUMERIC
---   sums calories * servings from meal_logs.
+-- daily_calories(p_user INT, p_day DATE) RETURNS NUMERIC
+--   Sums calories * servings from meal_logs for one user on one day.

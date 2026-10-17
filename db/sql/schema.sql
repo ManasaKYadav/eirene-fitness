@@ -1,15 +1,15 @@
 -- Eirene — schema (DDL)
 -- Run order: schema.sql -> seed.sql -> triggers.sql -> procedures.sql -> views.sql -> security.sql
 --
--- Person A owns: users, injuries, user_injuries, exercises, exercise_injuries,
---                workout_logs, progress_logs
--- Person B owns: goals, allergens, user_allergies, ingredients, ingredient_parts,
---                foods, food_ingredients, meal_logs
+-- Training & Users:          users, injuries, user_injuries, exercises,
+--                            exercise_injuries, workout_logs, progress_logs
+-- Nutrition & Recommendations: goals, allergens, user_allergies, ingredients,
+--                            ingredient_parts, foods, food_ingredients, meal_logs
 --
 -- Drops go first (reverse dependency order) so this file can be re-run.
 
 -- ============================================================
--- DROP (Person A)
+-- DROP — Training & Users
 -- ============================================================
 
 DROP TABLE IF EXISTS progress_logs CASCADE;
@@ -21,11 +21,11 @@ DROP TABLE IF EXISTS injuries CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- ============================================================
--- DROP (Person B)
+-- DROP — Nutrition & Recommendations
 -- ============================================================
 
 -- ============================================================
--- TABLES (Person A)
+-- TABLES — Training & Users
 -- ============================================================
 
 -- Accounts. role drives both the middleware check in the app and the
@@ -123,12 +123,12 @@ CREATE TABLE progress_logs (
 );
 
 -- ============================================================
--- TABLES (Person B)
+-- TABLES — Nutrition & Recommendations
 -- ============================================================
 
 -- ============================================================
--- ALTER / INDEXES  (runs after both sections, so neither person's
--- tables have to be created before the other's)
+-- ALTER / INDEXES  (runs after both sections above, so neither
+-- has to be created before the other)
 -- ============================================================
 
 -- Height is captured after signup rather than at registration, so it is added
@@ -141,9 +141,9 @@ ALTER TABLE users
 ALTER TABLE users
     ADD CONSTRAINT chk_users_height CHECK (height_cm IS NULL OR height_cm BETWEEN 50 AND 260);
 
--- users.goal_id -> goals.goal_id is added here rather than inline, because
--- users is Person A's table and goals is Person B's. Person B: uncomment
--- once the goals table exists.
+-- users.goal_id -> goals.goal_id is added here rather than inline so that
+-- neither table has to be created before the other. Uncomment once the
+-- goals table exists.
 -- ALTER TABLE users
 --   ADD CONSTRAINT fk_users_goal
 --   FOREIGN KEY (goal_id) REFERENCES goals(goal_id) ON DELETE SET NULL;

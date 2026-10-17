@@ -1,12 +1,9 @@
 -- Eirene — the queries shown in the report and viva
 --
--- Person A (Day 5):
---   1. Correlated subquery: users whose latest logged weight is below their
---      first logged weight.
---   2. GROUP BY + HAVING + ORDER BY: users with 3 or more workouts this week.
---
--- Person B (Day 3/5):
---   3. Recursive CTE: every allergen reachable from a food through nested
---      ingredients (ingredient_parts).
---   4. Nested subquery: foods nobody has logged.
---   5. JOIN with aggregates: average daily calories per goal.
+-- 1. Correlated subquery: users whose latest logged weight is below their
+--    first logged weight.
+-- 2. GROUP BY + HAVING + ORDER BY: users with 3 or more workouts this week.
+-- 3. Recursive CTE: every allergen reachable from a food through nested
+--    ingredients (ingredient_parts).
+-- 4. Nested subquery: foods nobody has logged.
+-- 5. JOIN with aggregates: average daily calories per goal.
