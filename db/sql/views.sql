@@ -10,7 +10,11 @@
 
 DROP VIEW IF EXISTS v_weekly_progress;
 
-CREATE VIEW v_weekly_progress AS
+-- security_invoker: run the view as whoever queries it, not as its owner.
+-- Without this a view is executed with the owner's privileges, and the owner
+-- is exempt from row-level security — so every user would see every user's
+-- weeks through the view even though the underlying table is protected.
+CREATE VIEW v_weekly_progress WITH (security_invoker = true) AS
 SELECT
     w.user_id,
     date_trunc('week', w.logged_on)::date      AS week_start,

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getPool, query } from "@/lib/db";
+import { withUser } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { recordDidExercise } from "@/lib/graph-training";
 
 const logSchema = z.object({
   exerciseId: z.coerce.number().int().positive(),
@@ -12,23 +13,30 @@ const logSchema = z.object({
 });
 
 // GET /api/workouts — the signed-in user's logs, most recent first.
+//
+// The WHERE clause names the user, and row-level security enforces the same
+// thing underneath: inside withUser the connection is eirene_user with
+// app.user_id set, so the policy would filter these rows even without it.
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const result = await query(
-    `SELECT w.log_id, w.exercise_id, e.name AS exercise_name, e.muscle_group,
-            w.sets, w.reps, w.weight_kg, w.logged_on,
-            (w.sets * w.reps * w.weight_kg) AS volume_kg
-       FROM workout_logs w
-       JOIN exercises e ON e.exercise_id = w.exercise_id
-      WHERE w.user_id = $1
-      ORDER BY w.logged_on DESC, w.log_id DESC
-      LIMIT 100`,
-    [session.userId]
-  );
+  const workouts = await withUser(session, async (q) => {
+    const result = await q(
+      `SELECT w.log_id, w.exercise_id, e.name AS exercise_name, e.muscle_group,
+              w.sets, w.reps, w.weight_kg, w.logged_on,
+              (w.sets * w.reps * w.weight_kg) AS volume_kg
+         FROM workout_logs w
+         JOIN exercises e ON e.exercise_id = w.exercise_id
+        WHERE w.user_id = $1
+        ORDER BY w.logged_on DESC, w.log_id DESC
+        LIMIT 100`,
+      [session.userId]
+    );
+    return result.rows;
+  });
 
-  return NextResponse.json({ workouts: result.rows });
+  return NextResponse.json({ workouts });
 }
 
 // POST /api/workouts — log one exercise through the log_workout procedure.
@@ -53,26 +61,24 @@ export async function POST(request: Request) {
 
   const { exerciseId, sets, reps, weightKg, loggedOn } = parsed.data;
 
-  // The procedure inserts the log and moves the streak forward. Both run
-  // inside this transaction, so if the safety trigger fires neither lands.
-  const client = await getPool().connect();
   try {
-    await client.query("BEGIN");
-    await client.query("CALL log_workout($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE))", [
-      session.userId,
-      exerciseId,
-      sets,
-      reps,
-      weightKg,
-      loggedOn ?? null,
-    ]);
-    await client.query("COMMIT");
+    // withUser opens the transaction, so the procedure's INSERT and its
+    // UPDATE of last_workout_on both roll back together if the safety
+    // trigger fires.
+    await withUser(session, async (q) => {
+      await q("CALL log_workout($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE))", [
+        session.userId,
+        exerciseId,
+        sets,
+        reps,
+        weightKg,
+        loggedOn ?? null,
+      ]);
+    });
   } catch (err) {
-    await client.query("ROLLBACK");
-
     const code = typeof err === "object" && err !== null && "code" in err ? err.code : undefined;
 
-    // 23514 = check_violation, which the safety trigger raises. Its message
+    // 23514 = check_violation, raised by the safety trigger. Its message
     // names the exercise and the injury, so it is shown to the user as-is.
     if (code === "23514") {
       return NextResponse.json(
@@ -91,8 +97,15 @@ export async function POST(request: Request) {
 
     console.error("log workout failed", err);
     return NextResponse.json({ error: "Could not save the workout" }, { status: 500 });
-  } finally {
-    client.release();
+  }
+
+  // PostgreSQL has committed, so the workout is saved. The graph is updated
+  // afterwards: a failure here must not undo a valid workout, so it is logged
+  // and the request still succeeds. The sync script can repair the edge.
+  try {
+    await recordDidExercise(session.userId, exerciseId);
+  } catch (err) {
+    console.error("could not record DID edge", err);
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });

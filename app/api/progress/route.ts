@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { query } from "@/lib/db";
+import { withUser } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
 const weighInSchema = z.object({
@@ -16,27 +16,30 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const [weekly, weighIns] = await Promise.all([
-    query(
+  const { weekly, weighIns } = await withUser(session, async (q) => {
+    const [weekly, weighIns] = await Promise.all([
+      q(
       `SELECT week_start, workout_count, exercises_used,
               total_reps, total_volume_kg, avg_weight_kg, last_logged_on
          FROM v_weekly_progress
         WHERE user_id = $1
         ORDER BY week_start DESC
-        LIMIT 12`,
-      [session.userId]
-    ),
-    query(
+          LIMIT 12`,
+        [session.userId]
+      ),
+      q(
       `SELECT progress_id, logged_on, weight_kg, body_fat_pct, notes
          FROM progress_logs
         WHERE user_id = $1
         ORDER BY logged_on DESC
-        LIMIT 30`,
-      [session.userId]
-    ),
-  ]);
+          LIMIT 30`,
+        [session.userId]
+      ),
+    ]);
+    return { weekly: weekly.rows, weighIns: weighIns.rows };
+  });
 
-  return NextResponse.json({ weekly: weekly.rows, weighIns: weighIns.rows });
+  return NextResponse.json({ weekly, weighIns });
 }
 
 // POST /api/progress — record a weigh-in.
@@ -64,14 +67,16 @@ export async function POST(request: Request) {
   try {
     // UNIQUE (user_id, logged_on) allows one weigh-in per day, so logging
     // again on the same day corrects the earlier figure rather than failing.
-    await query(
-      `INSERT INTO progress_logs (user_id, logged_on, weight_kg, body_fat_pct, notes)
+    await withUser(session, (q) =>
+      q(
+        `INSERT INTO progress_logs (user_id, logged_on, weight_kg, body_fat_pct, notes)
        VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5)
        ON CONFLICT (user_id, logged_on)
        DO UPDATE SET weight_kg    = EXCLUDED.weight_kg,
                      body_fat_pct = EXCLUDED.body_fat_pct,
-                     notes        = EXCLUDED.notes`,
-      [session.userId, loggedOn ?? null, weightKg, bodyFatPct ?? null, notes ?? null]
+                       notes        = EXCLUDED.notes`,
+        [session.userId, loggedOn ?? null, weightKg, bodyFatPct ?? null, notes ?? null]
+      )
     );
   } catch (err) {
     const code = typeof err === "object" && err !== null && "code" in err ? err.code : undefined;
