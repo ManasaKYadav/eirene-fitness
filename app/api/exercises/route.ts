@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { withUser } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
 // GET /api/exercises — the catalog, each exercise flagged with whether it
@@ -12,8 +12,9 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const result = await query(
-    `SELECT e.exercise_id, e.name, e.muscle_group, e.equipment, e.difficulty,
+  const exercises = await withUser(session, async (q) => {
+    const result = await q(
+      `SELECT e.exercise_id, e.name, e.muscle_group, e.equipment, e.difficulty,
             EXISTS (
               SELECT 1
                 FROM exercise_injuries ei
@@ -30,9 +31,11 @@ export async function GET() {
                  AND ui.user_id = $1
             ) AS strains
        FROM exercises e
-      ORDER BY e.muscle_group, e.name`,
-    [session.userId]
-  );
+        ORDER BY e.muscle_group, e.name`,
+      [session.userId]
+    );
+    return result.rows;
+  });
 
-  return NextResponse.json({ exercises: result.rows });
+  return NextResponse.json({ exercises });
 }

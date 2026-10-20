@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
-import { query } from "@/lib/db";
+import { withUser } from "@/lib/db";
 import NavBar from "@/app/nav-bar";
 
 export const metadata: Metadata = { title: "Dashboard — Eirene" };
@@ -31,33 +31,37 @@ export default async function DashboardPage({
 
   const { denied } = await searchParams;
 
-  const [weeks, weighIns, injuries] = await Promise.all([
-    query<Week>(
+  // All three run as eirene_user with app.user_id set, so the row-level
+  // security policies apply to the dashboard the same as to the API.
+  const [weeks, weighIns, injuries] = await withUser(session, (q) =>
+    Promise.all([
+      q<Week>(
       `SELECT week_start, workout_count, exercises_used,
               total_reps, total_volume_kg, avg_weight_kg
          FROM v_weekly_progress
         WHERE user_id = $1
         ORDER BY week_start DESC
         LIMIT 8`,
-      [session.userId]
-    ),
-    query<WeighIn>(
+        [session.userId]
+      ),
+      q<WeighIn>(
       `SELECT logged_on, weight_kg, body_fat_pct
          FROM progress_logs
         WHERE user_id = $1
         ORDER BY logged_on DESC
         LIMIT 5`,
-      [session.userId]
-    ),
-    query<{ name: string; severity: string }>(
+        [session.userId]
+      ),
+      q<{ name: string; severity: string }>(
       `SELECT i.name, ui.severity
          FROM user_injuries ui
          JOIN injuries i ON i.injury_id = ui.injury_id
         WHERE ui.user_id = $1
         ORDER BY i.name`,
-      [session.userId]
-    ),
-  ]);
+        [session.userId]
+      ),
+    ])
+  );
 
   const thisWeek = weeks.rows[0];
   const peakVolume = weeks.rows.reduce(
