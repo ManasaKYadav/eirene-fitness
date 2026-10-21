@@ -149,6 +149,34 @@ CREATE POLICY p_users_own ON users
     WITH CHECK (user_id = current_setting('app.user_id', true)::int);
 
 -- ============================================================
+-- Administrators may read everyone's rows
+-- ============================================================
+--
+-- The policies above are keyed on app.user_id and apply to eirene_admin too,
+-- so without these an admin reporting on all users would see only their own
+-- data. Policies are permissive and OR'd together, so a second policy
+-- granted only TO eirene_admin widens what that role can read while leaving
+-- eirene_user exactly as restricted as before.
+--
+-- Deliberately SELECT only. Admins report on user data; they do not edit
+-- someone else's workout log or weigh-in. Catalog editing is granted
+-- separately above.
+
+DROP POLICY IF EXISTS p_workout_logs_admin_read   ON workout_logs;
+DROP POLICY IF EXISTS p_progress_logs_admin_read  ON progress_logs;
+DROP POLICY IF EXISTS p_user_injuries_admin_read  ON user_injuries;
+DROP POLICY IF EXISTS p_meal_logs_admin_read      ON meal_logs;
+DROP POLICY IF EXISTS p_user_allergies_admin_read ON user_allergies;
+DROP POLICY IF EXISTS p_users_admin_read          ON users;
+
+CREATE POLICY p_workout_logs_admin_read   ON workout_logs   FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_progress_logs_admin_read  ON progress_logs  FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_user_injuries_admin_read  ON user_injuries  FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_meal_logs_admin_read      ON meal_logs      FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_user_allergies_admin_read ON user_allergies FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_users_admin_read          ON users          FOR SELECT TO eirene_admin USING (true);
+
+-- ============================================================
 -- Why the policies are not FORCEd
 -- ============================================================
 --
