@@ -1,0 +1,91 @@
+Eirene — verification tests
+run at 2026-10-21 06:55 UTC against http://localhost:3000
+
+------------------------------------------------------------
+TEST 1  Registration and login
+------------------------------------------------------------
+-> POST /api/auth/register  (new account, password 'password123')
+   HTTP 201
+   PASS  account created
+   PASS  session cookie issued
+   PASS  cookie is HttpOnly (not readable from JavaScript)
+-> POST /api/auth/register  (same email again)
+   HTTP 409  (UNIQUE constraint on users.email)
+   PASS  duplicate email refused
+-> POST /api/auth/login  (wrong password)
+   {"error":"Email or password is incorrect"}
+-> POST /api/auth/login  (email that does not exist)
+   {"error":"Email or password is incorrect"}
+   PASS  identical response, so the form cannot reveal which accounts exist
+-> POST /api/auth/login  (correct password)
+   HTTP 200
+   PASS  signed in
+
+------------------------------------------------------------
+TEST 2  A normal user is refused an admin page
+------------------------------------------------------------
+-> GET /admin/exercises  as aarav@eirene.test (role 'user')
+   redirected to http://localhost:3000/dashboard?denied=admin
+   PASS  refused by proxy.ts before the page renders
+-> GET /api/admin/exercises  as the same user (API reached directly)
+   HTTP 403
+   PASS  the API checks the role itself, not only the page
+-> GET /api/admin/exercises  signed out
+   HTTP 401
+   PASS  unauthenticated request refused
+-> GET /admin/exercises  as admin@eirene.test (role 'admin')
+   HTTP 200
+   PASS  admin allowed through
+
+------------------------------------------------------------
+TEST 3  An unsafe workout is rejected by the database
+------------------------------------------------------------
+   aarav@eirene.test has Knee Pain recorded.
+   Barbell Squat is recorded as straining Knee Pain.
+
+-> workout_logs for this user before: 9
+-> POST /api/workouts  { exerciseId: 1 (Barbell Squat), sets: 3, reps: 10, weightKg: 60 }
+   HTTP 409
+   Unsafe workout: Barbell Squat strains your recorded injury (Knee Pain)
+   PASS  refused
+-> workout_logs for this user after: 9
+   PASS  nothing was written; the procedure's insert and its update both rolled back
+-> POST /api/workouts  { exerciseId: 13, ... }  (an exercise that strains nothing)
+   HTTP 201
+   PASS  a safe workout still logs, so the rule is specific, not a blanket refusal
+
+   The same refusal applies to a direct INSERT, because the rule is a
+   trigger on workout_logs rather than a check in the route:
+     INSERT INTO workout_logs (user_id, exercise_id, sets, reps, weight_kg)
+     VALUES (2, 1, 3, 10, 60);
+     ERROR:  Unsafe workout: Barbell Squat strains your recorded injury (Knee Pain)
+     SQLSTATE 23514
+
+------------------------------------------------------------
+TEST 4  Row-level security hides another user's rows
+------------------------------------------------------------
+   Checked through the API, then directly in the database.
+
+-> GET /api/workouts as aarav: 10 rows
+-> GET /api/workouts as meera: 6 rows
+   PASS  each user is served their own rows
+
+-> the same thing at the database level:
+     as the owning role (no switch)      : 53 rows
+     as eirene_user, app.user_id = 2     : 10 rows, user_ids visible: 2
+     as eirene_user, app.user_id = 3     : 6 rows, user_ids visible: 3
+     role switched, app.user_id unset    : 0 rows (fails closed)
+     user 2 asking for user 3 rows       : 0 rows
+     as eirene_admin (reporting)         : 53 rows
+     admin UPDATE on another user        : 0 rows affected (read-only)
+   PASS  a user sees only their own rows, an unset session sees none, and admin reads are read-only
+
+------------------------------------------------------------
+CLEANUP
+------------------------------------------------------------
+   removed 3 test account(s) and 3 test log(s)
+   seed data: 50 workout_logs, 9 users, 24 progress_logs
+
+------------------------------------------------------------
+passed 15, failed 0
+------------------------------------------------------------
