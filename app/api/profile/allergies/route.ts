@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { withUser } from "@/lib/db";
+import { addAllergy, removeAllergy } from "@/lib/graph-sync";
 
 const addSchema = z.object({
   allergenId: z.number().int().positive(),
@@ -57,6 +58,19 @@ export async function POST(request: Request) {
     throw err;
   }
 
+  // PostgreSQL has the allergy, so the meals route already refuses unsafe
+  // foods. The graph is what the food list and recommendations read, so a
+  // failure here is reported rather than left as a quiet gap.
+  try {
+    await addAllergy(session.userId, parsed.data.allergenId, parsed.data.severity);
+  } catch (err) {
+    console.error("could not add ALLERGIC_TO edge", err);
+    return NextResponse.json(
+      { error: "Your allergy was saved, but the food filter could not be updated. Add it again." },
+      { status: 503 }
+    );
+  }
+
   return NextResponse.json({ ok: true }, { status: 201 });
 }
 
@@ -79,6 +93,19 @@ export async function DELETE(request: Request) {
       parsed.data.allergenId,
     ])
   );
+
+  // A failure here errs on the safe side: the graph still hides the foods.
+  // The allergy is gone from the profile, so retrying means adding it back and
+  // removing it again, or re-running the sync script.
+  try {
+    await removeAllergy(session.userId, parsed.data.allergenId);
+  } catch (err) {
+    console.error("could not remove ALLERGIC_TO edge", err);
+    return NextResponse.json(
+      { error: "Your allergy was removed, but the food list still hides those foods. Add it back and remove it again to retry." },
+      { status: 503 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

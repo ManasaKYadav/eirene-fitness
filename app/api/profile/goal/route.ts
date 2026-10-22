@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { withUser } from "@/lib/db";
+import { setGoal } from "@/lib/graph-sync";
 
 const goalSchema = z.object({
   goalId: z.number().int().positive().nullable(),
@@ -42,6 +43,19 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "That goal doesn't exist." }, { status: 400 });
     }
     throw err;
+  }
+
+  // PostgreSQL has the new goal. The graph decides who counts as a similar
+  // user, so if it was not updated the recommendations would be for the old
+  // goal. Say so, and let the user save again.
+  try {
+    await setGoal(session.userId, parsed.data.goalId);
+  } catch (err) {
+    console.error("could not update HAS_GOAL edge", err);
+    return NextResponse.json(
+      { error: "Your goal was saved, but recommendations could not be updated. Save it again." },
+      { status: 503 }
+    );
   }
 
   return NextResponse.json({ ok: true });
