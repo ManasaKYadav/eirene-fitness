@@ -33,3 +33,21 @@ BEGIN
        AND (last_workout_on IS NULL OR last_workout_on < p_logged_on);
 END;
 $$;
+-- ============================================================
+-- daily_calories — total calories a user ate on a given day
+-- ============================================================
+--
+-- Sums calories x servings from meal_logs. It runs as the caller, so
+-- row-level security still decides which meal_logs rows it can see.
+
+CREATE OR REPLACE FUNCTION daily_calories(p_user INT, p_day DATE)
+RETURNS NUMERIC
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT COALESCE(SUM(f.calories * m.servings), 0)
+    FROM meal_logs m
+    JOIN foods f ON f.food_id = m.food_id
+    WHERE m.user_id = p_user
+      AND m.logged_on = p_day;
+$$;
