@@ -4,6 +4,7 @@ import LogoutButton from "@/app/dashboard/logout-button";
 const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/workouts", label: "Workouts" },
+  { href: "/meals", label: "Meals" },
   { href: "/profile", label: "Profile" },
 ];
 
