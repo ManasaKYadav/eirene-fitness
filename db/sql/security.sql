@@ -95,10 +95,20 @@ $$;
 -- Row-level security
 -- ============================================================
 --
--- current_setting('app.user_id', true) — the second argument makes a missing
--- setting return NULL instead of raising. A NULL comparison is not true, so
--- a transaction that forgot to set it sees no rows at all. Failing closed
--- matters more here than a clear error message.
+-- NULLIF(current_setting('app.user_id', true), '')::int
+--
+-- Two things have to be handled, and both end as NULL so the comparison is
+-- not true and the statement sees no rows:
+--
+--   * the setting was never set on this connection — the second argument to
+--     current_setting returns NULL rather than raising;
+--   * the setting was set earlier on this pooled connection and has since
+--     been reset at COMMIT. PostgreSQL remembers the name and resets the
+--     value to an empty string, not to NULL, and ''::int raises 22P02. NULLIF
+--     turns that empty string back into NULL.
+--
+-- The second case only appears on a reused connection, so it is easy to miss
+-- when testing against a fresh one.
 
 ALTER TABLE workout_logs  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE progress_logs ENABLE ROW LEVEL SECURITY;
@@ -119,34 +129,62 @@ DROP POLICY IF EXISTS p_users_own          ON users;
 -- insert a row carrying someone else's user_id, and then no longer see it.
 CREATE POLICY p_workout_logs_own ON workout_logs
     FOR ALL
-    USING      (user_id = current_setting('app.user_id', true)::int)
-    WITH CHECK (user_id = current_setting('app.user_id', true)::int);
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
 
 CREATE POLICY p_progress_logs_own ON progress_logs
     FOR ALL
-    USING      (user_id = current_setting('app.user_id', true)::int)
-    WITH CHECK (user_id = current_setting('app.user_id', true)::int);
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
 
 CREATE POLICY p_user_injuries_own ON user_injuries
     FOR ALL
-    USING      (user_id = current_setting('app.user_id', true)::int)
-    WITH CHECK (user_id = current_setting('app.user_id', true)::int);
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
 
 CREATE POLICY p_meal_logs_own ON meal_logs
     FOR ALL
-    USING      (user_id = current_setting('app.user_id', true)::int)
-    WITH CHECK (user_id = current_setting('app.user_id', true)::int);
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
 
 CREATE POLICY p_user_allergies_own ON user_allergies
     FOR ALL
-    USING      (user_id = current_setting('app.user_id', true)::int)
-    WITH CHECK (user_id = current_setting('app.user_id', true)::int);
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
 
 -- A signed-in user sees and edits only their own account row.
 CREATE POLICY p_users_own ON users
     FOR ALL
-    USING      (user_id = current_setting('app.user_id', true)::int)
-    WITH CHECK (user_id = current_setting('app.user_id', true)::int);
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
+
+-- ============================================================
+-- Administrators may read everyone's rows
+-- ============================================================
+--
+-- The policies above are keyed on app.user_id and apply to eirene_admin too,
+-- so without these an admin reporting on all users would see only their own
+-- data. Policies are permissive and OR'd together, so a second policy
+-- granted only TO eirene_admin widens what that role can read while leaving
+-- eirene_user exactly as restricted as before.
+--
+-- Deliberately SELECT only. Admins report on user data; they do not edit
+-- someone else's workout log or weigh-in. Catalog editing is granted
+-- separately above.
+
+DROP POLICY IF EXISTS p_workout_logs_admin_read   ON workout_logs;
+DROP POLICY IF EXISTS p_progress_logs_admin_read  ON progress_logs;
+DROP POLICY IF EXISTS p_user_injuries_admin_read  ON user_injuries;
+DROP POLICY IF EXISTS p_meal_logs_admin_read      ON meal_logs;
+DROP POLICY IF EXISTS p_user_allergies_admin_read ON user_allergies;
+DROP POLICY IF EXISTS p_users_admin_read          ON users;
+
+CREATE POLICY p_workout_logs_admin_read   ON workout_logs   FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_progress_logs_admin_read  ON progress_logs  FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_user_injuries_admin_read  ON user_injuries  FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_meal_logs_admin_read      ON meal_logs      FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_user_allergies_admin_read ON user_allergies FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_users_admin_read          ON users          FOR SELECT TO eirene_admin USING (true);
 
 -- ============================================================
 -- Why the policies are not FORCEd

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import NavBar from "@/app/nav-bar";
 import InjuriesSection from "./injuries-section";
-
+import GoalAllergiesSection from "./goal-allergies-section";
 export const metadata: Metadata = { title: "Profile — Eirene" };
 
 export default async function ProfilePage() {
@@ -21,7 +21,7 @@ export default async function ProfilePage() {
 
       <InjuriesSection />
 
-      {/* Goal and allergies are added here as part of the nutrition work. */}
+      <GoalAllergiesSection session={session} />
     </main>
   );
 }

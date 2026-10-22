@@ -4,6 +4,8 @@ import LogoutButton from "@/app/dashboard/logout-button";
 const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/workouts", label: "Workouts" },
+  { href: "/meals", label: "Meals" },
+  { href: "/recommendations", label: "Recommendations" },
   { href: "/profile", label: "Profile" },
 ];
 
@@ -25,12 +27,26 @@ export default function NavBar({ role }: { role: "admin" | "user" }) {
       ))}
 
       {role === "admin" && (
-        <Link
-          href="/admin/exercises"
-          className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-        >
-          Admin
-        </Link>
+        <>
+          <Link
+            href="/admin/exercises"
+            className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          >
+            Exercises
+          </Link>
+          <Link
+            href="/admin/foods"
+            className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          >
+            Foods
+          </Link>
+          <Link
+            href="/admin/insights"
+            className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          >
+            Insights
+          </Link>
+        </>
       )}
 
       <div className="ml-auto">

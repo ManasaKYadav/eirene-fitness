@@ -33,36 +33,73 @@ npm run dev
 ```
 app/              routes and pages
   api/health/     database reachability check
-lib/db.ts         pg Pool and query() helper
+lib/db.ts         pg Pool, query() and withUser() (roles and row-level security)
+lib/auth.ts       session JWT
+lib/neo4j.ts      Neo4j driver and run() helper
+lib/graph-*.ts    graph reads and write-through (training, nutrition)
+lib/recommendations.ts  safe-food and similar-user graph queries
 db/sql/           schema, seed, triggers, procedures, views, queries, security
 db/neo4j/         constraints and graph setup
 docs/             ER diagram
 scripts/          one-off scripts (PostgreSQL -> Neo4j sync)
 ```
 
-## Development accounts
+## Seeded accounts
 
-A temporary admin account exists for testing the role checks until the seed
-data lands:
+`seed.sql` creates these. Every one uses the password `password123`.
 
-| Email | Password | Role |
+| Email | Role | Useful for |
 | --- | --- | --- |
-| `admin@eirene.dev` | `adminpass123` | admin |
+| `admin@eirene.test` | admin | admin exercises, foods and insights |
+| `meera@eirene.test` | user | peanut allergy and a lower back strain: the safety demo |
+| `aarav@eirene.test`, `rohan@eirene.test` | user | same goal as Meera (Fat Loss), so they drive her recommendations |
+| `ananya@eirene.test`, `kabir@eirene.test`, `isha@eirene.test`, `vikram@eirene.test`, `sana@eirene.test` | user | other goals, injuries and allergies |
 
-Normal accounts are created through `/register` and are always role `user`;
-admin is granted in the database. These are throwaway credentials for a
-coursework database — nothing real is protected by them.
+Accounts created through `/register` are always role `user`; admin is granted
+in the database. These are throwaway credentials for a coursework database —
+nothing real is protected by them.
 
 ## Database setup order
 
-Run against Neon in this order, then run the Neo4j sync script:
+Run against Neon in this order:
 
-1. `db/sql/schema.sql`
-2. `db/sql/seed.sql`
+1. `db/sql/schema.sql` — drops and recreates every table
+2. `db/sql/seed.sql` — empties every table and reloads the demo data
 3. `db/sql/triggers.sql`
 4. `db/sql/procedures.sql`
 5. `db/sql/views.sql`
-6. `db/sql/security.sql`
+6. `db/sql/security.sql` — re-run this after any change to tables or views,
+   since dropping a view drops its grants
+
+```bash
+node --env-file=.env.local scripts/run-sql.mjs db/sql/schema.sql
+# ...and so on for each file
+```
+
+Then copy the data into Neo4j. The sync script applies
+`db/neo4j/constraints.cypher`, clears the graph and rebuilds it from
+PostgreSQL, so it is safe to re-run after reseeding:
+
+```bash
+node --env-file=.env.local scripts/sync-neo4j.mjs
+```
+
+`db/sql/queries.sql` holds the report queries; run it the same way to see
+their results.
+
+## Checking the safety rules
+
+With the dev server running:
+
+```bash
+node --env-file=.env.local scripts/verify-nutrition.mjs
+```
+
+It signs in as Meera and checks that no peanut dish is listed, that the peanut
+hidden in the satay sauce is caught, that a peanut meal is refused, and that
+recommendations skip anything unsafe. Restart the server with a wrong
+`NEO4J_PASSWORD` and add `--expect-503` to check that the app shows nothing
+rather than an unchecked list.
 
 ## Who built what
 
