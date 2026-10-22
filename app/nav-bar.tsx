@@ -26,12 +26,20 @@ export default function NavBar({ role }: { role: "admin" | "user" }) {
       ))}
 
       {role === "admin" && (
-        <Link
-          href="/admin/exercises"
-          className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-        >
-          Admin
-        </Link>
+        <>
+          <Link
+            href="/admin/exercises"
+            className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          >
+            Exercises
+          </Link>
+          <Link
+            href="/admin/insights"
+            className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          >
+            Insights
+          </Link>
+        </>
       )}
 
       <div className="ml-auto">
