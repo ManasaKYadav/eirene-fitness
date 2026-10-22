@@ -35,6 +35,12 @@ export default function NavBar({ role }: { role: "admin" | "user" }) {
             Exercises
           </Link>
           <Link
+            href="/admin/foods"
+            className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          >
+            Foods
+          </Link>
+          <Link
             href="/admin/insights"
             className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
           >
