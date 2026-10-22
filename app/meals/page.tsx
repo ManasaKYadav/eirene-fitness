@@ -2,12 +2,13 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { withUser } from "@/lib/db";
+import { GraphUnavailableError } from "@/lib/graph-training";
+import { checkedSafeFoods } from "@/lib/safe-foods";
+import type { SafeFood, UnsafeFood } from "@/lib/recommendations";
 import NavBar from "@/app/nav-bar";
 import MealForm from "./meal-form";
 
 export const metadata: Metadata = { title: "Meals — Eirene" };
-
-type SafeFood = { food_id: number; food_name: string; calories: string };
 
 type Meal = {
   meal_log_id: number;
@@ -24,16 +25,9 @@ export default async function MealsPage() {
   // proxy.ts already redirects signed-out visitors. This is the second check.
   if (!session) redirect("/login");
 
-  const { safeFoods, todayCalories, meals, totalFoods } = await withUser(
+  const { todayCalories, meals } = await withUser(
     session,
     async (q) => {
-      const safe = await q<SafeFood>(
-        `SELECT food_id, food_name, calories
-           FROM v_safe_foods
-          WHERE user_id = $1
-          ORDER BY food_name`,
-        [session.userId]
-      );
       const today = await q<{ total: string }>(
         `SELECT daily_calories($1, CURRENT_DATE) AS total`,
         [session.userId]
@@ -48,18 +42,24 @@ export default async function MealsPage() {
           LIMIT 15`,
         [session.userId]
       );
-      const all = await q<{ count: string }>(`SELECT count(*) AS count FROM foods`);
 
       return {
-        safeFoods: safe.rows,
         todayCalories: Number(today.rows[0]?.total ?? 0),
         meals: recent.rows,
-        totalFoods: Number(all.rows[0]?.count ?? 0),
       };
     }
   );
 
-  const hiddenCount = totalFoods - safeFoods.length;
+  // The food list comes from the graph. If Neo4j cannot answer, the form is
+  // not shown at all: an unfiltered list is how a peanut allergy meets a
+  // satay sauce.
+  let foods: { safe: SafeFood[]; unsafe: UnsafeFood[] } | null = null;
+  try {
+    foods = await checkedSafeFoods(session);
+  } catch (err) {
+    if (!(err instanceof GraphUnavailableError)) throw err;
+    console.error("meals page: safe foods unavailable", err.cause);
+  }
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
@@ -72,31 +72,51 @@ export default async function MealsPage() {
 
       <section className="mb-10 grid gap-4 sm:grid-cols-3">
         <Stat label="Calories today" value={`${Math.round(todayCalories).toLocaleString()} kcal`} />
-        <Stat label="Foods you can log" value={String(safeFoods.length)} />
+        <Stat label="Foods you can log" value={foods ? String(foods.safe.length) : "—"} />
         <Stat
           label="Foods hidden for you"
-          value={String(hiddenCount)}
-          tone={hiddenCount > 0 ? "warn" : "plain"}
+          value={foods ? String(foods.unsafe.length) : "—"}
+          tone={foods && foods.unsafe.length > 0 ? "warn" : "plain"}
         />
       </section>
-
-      {hiddenCount > 0 && (
-        <p className="mb-8 text-sm text-zinc-600 dark:text-zinc-400">
-          Hidden foods contain an allergen from your profile, including ones inside sauces
-          and other ingredients.
-        </p>
-      )}
 
       <section className="mb-10">
         <h2 className="mb-3 font-medium">Log a meal</h2>
-        <MealForm
-          foods={safeFoods.map((f) => ({
-            food_id: f.food_id,
-            food_name: f.food_name,
-            calories: Number(f.calories),
-          }))}
-        />
+        {foods ? (
+          <MealForm
+            foods={foods.safe.map((f) => ({
+              food_id: f.foodId,
+              food_name: f.name,
+              calories: f.calories,
+            }))}
+          />
+        ) : (
+          <p
+            role="alert"
+            className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-900 dark:bg-amber-950/40"
+          >
+            The safe food list is unavailable right now, so meal logging is paused. Nothing is
+            shown rather than a list that has not been checked against your allergies.
+          </p>
+        )}
       </section>
+
+      {foods && foods.unsafe.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 font-medium">Hidden for you</h2>
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+            These contain an allergen from your profile, including ones inside sauces and other
+            ingredients.
+          </p>
+          <ul className="space-y-1.5 text-sm">
+            {foods.unsafe.map((f) => (
+              <li key={f.foodId}>
+                {f.name} <span className="text-zinc-500">· contains {f.allergens.join(", ")}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 font-medium">Recent meals</h2>
