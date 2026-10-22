@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { withUser } from "@/lib/db";
+import { recordMeal } from "@/lib/graph-sync";
 
 const mealSchema = z.object({
   foodId: z.number().int().positive(),
@@ -92,6 +93,15 @@ export async function POST(request: Request) {
       { error: "That food isn't available to you. It may contain one of your allergens." },
       { status: 403 }
     );
+  }
+
+  // PostgreSQL has committed, so the meal is saved. The ATE edge only feeds
+  // recommendations, so a graph failure is logged rather than undoing a valid
+  // meal. The sync script rebuilds the counts from meal_logs.
+  try {
+    await recordMeal(session.userId, foodId);
+  } catch (err) {
+    console.error("could not record ATE edge", err);
   }
 
   return NextResponse.json({ mealLogId }, { status: 201 });
