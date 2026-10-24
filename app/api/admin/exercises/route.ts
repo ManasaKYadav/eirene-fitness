@@ -34,13 +34,22 @@ async function requireAdmin() {
 }
 
 // GET — the catalog with the injuries each exercise strains.
-export async function GET() {
+//
+// ?q= searches name, muscle group and equipment. The filtering is done by the
+// database with ILIKE rather than in the browser, so the page stays correct
+// as the catalog grows and the work happens where the data is.
+export async function GET(request: Request) {
   const { session, error } = await requireAdmin();
   if (error) return error;
 
+  const term = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+
   const data = await withUser(session, async (q) => {
     const [exercises, injuries] = await Promise.all([
-      q(`SELECT e.exercise_id, e.name, e.muscle_group, e.equipment, e.difficulty,
+      // $1 is NULL when no term was given, so the WHERE clause is skipped.
+      // The term is still a parameter, never concatenated into the SQL.
+      q(
+        `SELECT e.exercise_id, e.name, e.muscle_group, e.equipment, e.difficulty,
                 COALESCE(
                   array_agg(ei.injury_id ORDER BY ei.injury_id)
                     FILTER (WHERE ei.injury_id IS NOT NULL),
@@ -48,11 +57,17 @@ export async function GET() {
                 ) AS injury_ids
            FROM exercises e
            LEFT JOIN exercise_injuries ei ON ei.exercise_id = e.exercise_id
+          WHERE $1::text IS NULL
+             OR e.name         ILIKE '%' || $1 || '%'
+             OR e.muscle_group ILIKE '%' || $1 || '%'
+             OR e.equipment    ILIKE '%' || $1 || '%'
           GROUP BY e.exercise_id
-          ORDER BY e.muscle_group, e.name`),
+          ORDER BY e.muscle_group, e.name`,
+        [term === "" ? null : term]
+      ),
       q(`SELECT injury_id, name, body_part FROM injuries ORDER BY body_part, name`),
     ]);
-    return { exercises: exercises.rows, injuries: injuries.rows };
+    return { exercises: exercises.rows, injuries: injuries.rows, query: term };
   });
 
   return NextResponse.json(data);
