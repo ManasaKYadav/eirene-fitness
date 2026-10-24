@@ -72,6 +72,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     meal_logs, user_allergies
 TO eirene_user, eirene_admin;
 
+-- workout_audit is written by the AFTER INSERT trigger on workout_logs, and
+-- a trigger function runs as whoever ran the statement. So the role logging
+-- the workout needs INSERT here, or the trigger fails and takes the workout
+-- with it. No UPDATE or DELETE: the table is append-only by design.
+GRANT SELECT, INSERT ON workout_audit TO eirene_user, eirene_admin;
+
 GRANT SELECT, UPDATE ON users TO eirene_user, eirene_admin;
 
 -- SERIAL columns draw from a sequence, so inserting needs USAGE on it.
@@ -116,6 +122,7 @@ ALTER TABLE user_injuries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meal_logs     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_allergies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workout_audit ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS p_workout_logs_own   ON workout_logs;
 DROP POLICY IF EXISTS p_progress_logs_own  ON progress_logs;
@@ -123,6 +130,7 @@ DROP POLICY IF EXISTS p_user_injuries_own  ON user_injuries;
 DROP POLICY IF EXISTS p_meal_logs_own      ON meal_logs;
 DROP POLICY IF EXISTS p_user_allergies_own ON user_allergies;
 DROP POLICY IF EXISTS p_users_own          ON users;
+DROP POLICY IF EXISTS p_workout_audit_own  ON workout_audit;
 
 -- USING filters the rows a statement can see or change; WITH CHECK filters
 -- the rows it may write. Both are needed: without WITH CHECK a user could
@@ -148,6 +156,11 @@ CREATE POLICY p_meal_logs_own ON meal_logs
     WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
 
 CREATE POLICY p_user_allergies_own ON user_allergies
+    FOR ALL
+    USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
+
+CREATE POLICY p_workout_audit_own ON workout_audit
     FOR ALL
     USING      (user_id = NULLIF(current_setting('app.user_id', true), '')::int)
     WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::int);
@@ -178,6 +191,7 @@ DROP POLICY IF EXISTS p_user_injuries_admin_read  ON user_injuries;
 DROP POLICY IF EXISTS p_meal_logs_admin_read      ON meal_logs;
 DROP POLICY IF EXISTS p_user_allergies_admin_read ON user_allergies;
 DROP POLICY IF EXISTS p_users_admin_read          ON users;
+DROP POLICY IF EXISTS p_workout_audit_admin_read  ON workout_audit;
 
 CREATE POLICY p_workout_logs_admin_read   ON workout_logs   FOR SELECT TO eirene_admin USING (true);
 CREATE POLICY p_progress_logs_admin_read  ON progress_logs  FOR SELECT TO eirene_admin USING (true);
@@ -185,6 +199,7 @@ CREATE POLICY p_user_injuries_admin_read  ON user_injuries  FOR SELECT TO eirene
 CREATE POLICY p_meal_logs_admin_read      ON meal_logs      FOR SELECT TO eirene_admin USING (true);
 CREATE POLICY p_user_allergies_admin_read ON user_allergies FOR SELECT TO eirene_admin USING (true);
 CREATE POLICY p_users_admin_read          ON users          FOR SELECT TO eirene_admin USING (true);
+CREATE POLICY p_workout_audit_admin_read  ON workout_audit  FOR SELECT TO eirene_admin USING (true);
 
 -- ============================================================
 -- Why the policies are not FORCEd

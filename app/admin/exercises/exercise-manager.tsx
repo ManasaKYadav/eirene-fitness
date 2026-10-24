@@ -40,17 +40,30 @@ export default function ExerciseManager() {
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
-  async function load() {
-    const data = await fetch("/api/admin/exercises").then((r) => r.json());
+  async function load(term = search) {
+    const url = term.trim()
+      ? `/api/admin/exercises?q=${encodeURIComponent(term.trim())}`
+      : "/api/admin/exercises";
+    const data = await fetch(url).then((r) => r.json());
     setExercises(data.exercises ?? []);
     setInjuries(data.injuries ?? []);
     setLoading(false);
   }
 
   useEffect(() => {
-    load();
+    load("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The search runs in the database, so it is debounced rather than fired on
+  // every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => load(search), 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -239,9 +252,48 @@ export default function ExerciseManager() {
       </section>
 
       <section>
-        <h2 className="mb-4 font-medium">Catalog ({exercises.length})</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-medium">
+            Catalog ({exercises.length}
+            {search.trim() && " matching"})
+          </h2>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, group or equipment…"
+              aria-label="Search exercises"
+              className="w-64 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-300"
+            />
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-xs font-medium underline underline-offset-4"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {search.trim() && (
+          <p className="mb-3 text-xs text-zinc-500">
+            Filtered by the database:{" "}
+            <code>
+              WHERE name ILIKE &apos;%{search.trim()}%&apos; OR muscle_group ILIKE
+              … OR equipment ILIKE …
+            </code>
+          </p>
+        )}
         {loading ? (
           <p className="text-sm text-zinc-500">Loading…</p>
+        ) : exercises.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No exercise matches “{search.trim()}”.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[42rem] text-sm">

@@ -12,6 +12,7 @@
 -- DROP — Training & Users
 -- ============================================================
 
+DROP TABLE IF EXISTS workout_audit CASCADE;
 DROP TABLE IF EXISTS progress_logs CASCADE;
 DROP TABLE IF EXISTS workout_logs CASCADE;
 DROP TABLE IF EXISTS exercise_injuries CASCADE;
@@ -128,6 +129,23 @@ CREATE TABLE progress_logs (
     CONSTRAINT chk_progress_logs_bodyfat CHECK (body_fat_pct BETWEEN 1 AND 70),
     CONSTRAINT chk_progress_logs_date    CHECK (logged_on <= CURRENT_DATE)
 );
+
+-- Append-only record of every workout that was accepted, written by the
+-- AFTER INSERT trigger in triggers.sql. It stores log_id, which is why the
+-- trigger has to be AFTER: the serial value does not exist until the row has
+-- actually been inserted.
+CREATE TABLE workout_audit (
+    audit_id    SERIAL      PRIMARY KEY,
+    log_id      INT         NOT NULL,
+    user_id     INT         NOT NULL,
+    exercise_id INT         NOT NULL,
+    volume_kg   NUMERIC(10,2) NOT NULL,
+    logged_on   DATE        NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    recorded_by TEXT        NOT NULL DEFAULT current_user
+);
+
+CREATE INDEX idx_workout_audit_user ON workout_audit (user_id, recorded_at DESC);
 
 -- ============================================================
 -- TABLES — Nutrition & Recommendations
